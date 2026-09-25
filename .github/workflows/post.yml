@@ -2,12 +2,13 @@ name: Post to Threads
 
 on:
   schedule:
-    - cron: "40 0 * * *"
-    - cron: "40 11 * * *"
+    - cron: "40 0 * * *"   # 07:40 по Сайгону → первый пост в 08:00
+    - cron: "40 5 * * *"   # 12:40 по Сайгону → первый пост в 13:00
+    - cron: "40 11 * * *"  # 18:40 по Сайгону → первый пост в 19:00
   workflow_dispatch:
     inputs:
       slot:
-        description: "morning или evening"
+        description: "morning, midday или evening"
         required: true
         default: morning
       dry_run:
@@ -35,7 +36,11 @@ jobs:
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
         run: |
           if [ "${{ github.event_name }}" = "schedule" ]; then
-            if [ "${{ github.event.schedule }}" = "40 0 * * *" ]; then SLOT=morning; else SLOT=evening; fi
+            case "${{ github.event.schedule }}" in
+              "40 0 * * *") SLOT=morning ;;
+              "40 5 * * *") SLOT=midday ;;
+              *) SLOT=evening ;;
+            esac
             python post.py "$SLOT"
           else
             FLAGS="--no-wait"
