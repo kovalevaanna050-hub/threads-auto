@@ -1,11 +1,12 @@
-"""Публикует утренние или вечерние посты в Threads и шлёт ссылки в Telegram.
+"""Публикует посты в Threads (утро/день/вечер) и шлёт ссылки в Telegram.
 
-Запуск: python post.py morning|evening [--dry-run] [--no-wait]
+Запуск: python post.py morning|midday|evening [--dry-run] [--no-wait]
 Секреты (env): THREADS_TOKEN, TG_BOT_TOKEN, TG_CHAT_ID
 """
 import datetime as dt
 import json
 import os
+import random
 import sys
 import time
 import urllib.parse
@@ -13,8 +14,9 @@ import urllib.request
 
 API = "https://graph.threads.net/v1.0"
 TZ = dt.timezone(dt.timedelta(hours=7))  # Asia/Saigon
-START = {"morning": (8, 0), "evening": (19, 0)}
-GAP_MIN = 5  # минут между постами
+START = {"morning": (8, 0), "midday": (13, 0), "evening": (19, 0)}
+TITLE = {"morning": "Утро", "midday": "День", "evening": "Вечер"}
+GAP_MIN_RANGE = (3, 5)  # случайный интервал между постами, минут
 
 DRY = "--dry-run" in sys.argv
 NO_WAIT = "--no-wait" in sys.argv
@@ -100,8 +102,10 @@ def main():
     base = max(base, dt.datetime.now(TZ))  # если GitHub запустил с опозданием — сдвигаем всё расписание
 
     links, errors = [], []
+    target = base
     for i, post in enumerate(posts):
-        target = base + dt.timedelta(minutes=GAP_MIN * i)
+        if i > 0:
+            target += dt.timedelta(minutes=random.randint(*GAP_MIN_RANGE))
         delay = (target - dt.datetime.now(TZ)).total_seconds()
         if delay > 0 and not NO_WAIT and not DRY:
             time.sleep(delay)
@@ -112,7 +116,7 @@ def main():
             errors.append(f"#{post['n']}: {e}")
             print("ERROR", errors[-1])
 
-    title = "Утро" if slot == "morning" else "Вечер"
+    title = TITLE.get(slot, slot)
     msg = f"✅ {title} {today:%d.%m}: опубликовано {len(links)}/{len(posts)}\n\n" + "\n".join(links)
     if errors:
         msg += "\n\n⚠️ Ошибки:\n" + "\n".join(e[:300] for e in errors)
